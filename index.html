@@ -1,10 +1,25 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang='en'>
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 Car Control</title>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>LINEFOLLOWER</title>
     <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1,
+        h2 {
+            color: #333;
+        }
+
         .button {
             display: inline-block;
             padding: 15px 25px;
@@ -14,47 +29,261 @@
             text-decoration: none;
             outline: none;
             color: #fff;
-            background-color: #4CAF50;
+            background-color: #007BFF;
             border: none;
             border-radius: 15px;
             box-shadow: 0 9px #999;
             margin: 5px;
+            transition: background-color 0.3s ease, transform 0.1s ease;
         }
 
-        .button:hover {background-color: #3e8e41}
+        .button-large {
+            font-size: 24px;
+            padding: 20px 30px;
+        }
+
+        .button:hover {
+            background-color: #0056b3;
+        }
 
         .button:active {
-            background-color: #3e8e41;
+            background-color: #004494;
             box-shadow: 0 5px #666;
             transform: translateY(4px);
         }
+
+        .button-disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .info-message {
+            display: none;
+            font-size: 24px;
+            color: #333;
+        }
+
+        #manual-controls {
+            margin-top: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            width: 90%;
+        }
+
+        #manual-buttons {
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .button-control {
+            width: 80px;
+            height: 80px;
+            margin: 5px;
+            font-size: 20px;
+            cursor: pointer;
+            outline: none;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            background-color: #ccc;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+            border: none;
+            border-radius: 5px;
+            padding: 5px;
+        }
+
+        .button-control:hover {
+            background-color: #ddd;
+        }
+
+        .button-control:active {
+            background-color: #bbb;
+            transform: translateY(4px);
+        }
+
+        .button-inner {
+            background-color: #fff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            margin: auto;
+        }
+
+        .modo-reposo {
+            background-color: red !important;
+        }
+
+        .modo-manual {
+            background-color: green !important;
+        }
+
+        .modo-linefollower {
+            background-color: blue !important;
+        }
+
+        .modo-activo {
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        #control-container {
+            display: grid;
+            grid-template-areas:
+                ". up ."
+                "left stop right"
+                ". down .";
+            gap: 10px;
+        }
+
+        #forward-btn {
+            grid-area: up;
+        }
+
+        #left-btn {
+            grid-area: left;
+        }
+
+        #stop-btn {
+            grid-area: stop;
+        }
+
+        #right-btn {
+            grid-area: right;
+        }
+
+        #backward-btn {
+            grid-area: down;
+        }
+
+        #serial-monitor {
+            width: 300px;
+            height: 300px;
+            border: 1px solid #333;
+            border-radius: 5px;
+            background-color: #fff;
+            padding: 10px;
+            overflow-y: scroll;
+            text-align: left;
+        }
+
+        #mode-buttons-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
     </style>
 </head>
+
 <body>
     <h1>ESP32 Car Control</h1>
-    <button class="button" onclick="sendCommand('REPOSO')">REPOSO</button>
-    <button class="button" onclick="sendCommand('MANUAL')">MANUAL</button>
-    <button class="button" onclick="sendCommand('LINEFOLLOWER')">LINEFOLLOWER</button>
-    <br>
-    <button class="button" onclick="sendCommand('FORWARD')">FORWARD</button>
-    <button class="button" onclick="sendCommand('BACKWARD')">BACKWARD</button>
-    <button class="button" onclick="sendCommand('LEFT')">LEFT</button>
-    <button class="button" onclick="sendCommand('RIGHT')">RIGHT</button>
-    <button class="button" onclick="sendCommand('STOP')">STOP</button>
-
+    <h2>Controla tu auto desde aquí</h2>
+    <div id="mode-buttons-container">
+        <button class='button button-large' id="reposo-btn" onclick='sendCommand("REPOSO")'>REPOSO</button>
+        <button class='button button-large' id="manual-btn" onclick='sendCommand("MANUAL")'>MANUAL</button>
+        <button class='button button-large' id="linefollower-btn"
+            onclick='sendCommand("LINEFOLLOWER")'>LINEFOLLOWER</button>
+    </div>
+    <div id="manual-controls">
+        <div id="serial-monitor">
+            <h2>Serial Monitor</h2>
+            <div id="serial-content"></div>
+        </div>
+        <div id="manual-buttons">
+            <div id="control-container">
+                <button class="button button-control" id="forward-btn" onclick='sendControlCommand("FORWARD")'>
+                    <div class="button-inner"></div>
+                </button>
+                <button class="button button-control" id="left-btn" onclick='sendControlCommand("LEFT")'>
+                    <div class="button-inner"></div>
+                </button>
+                <button class="button button-control" id="stop-btn" onclick='sendControlCommand("STOP")'>
+                    <div class="button-inner"></div>
+                </button>
+                <button class="button button-control" id="right-btn" onclick='sendControlCommand("RIGHT")'>
+                    <div class="button-inner"></div>
+                </button>
+                <button class="button button-control" id="backward-btn" onclick='sendControlCommand("BACKWARD")'>
+                    <div class="button-inner"></div>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div id='info-message-container'>
+        <p class='info-message' id='reposo-message'>El auto no se puede mover en modo REPOSO. Por favor, cambia a otro
+            modo.</p>
+        <p class='info-message' id='linefollower-message'>El auto está en modo LINEFOLLOWER. No se pueden usar los
+            botones de movimiento.</p>
+    </div>
     <script>
-        const host = '192.168.4.1';
-        const port = 80;
+        let manualMode = false;
+        let currentMode = "reposo";
+        function sendCommand(command) {
+            if (command === "MANUAL") {
+                manualMode = true;
+                enableManualButtons();
+                currentMode = "manual";
+                logCommand(`Ingresado al modo: ${command}`);
+            } else {
+                manualMode = false;
+                disableManualButtons();
+                currentMode = command.toLowerCase();
+                logCommand(`Ingresado al modo: ${command}`);
+            }
+            fetch(`/command?cmd=${command}`)
+                .then(response => response.text())
+                .then(data => console.log(data))
+                .catch(error => console.error('Error:', error));
+            updateButtonStyles();
+        }
 
-        async function sendCommand(command) {
-            try {
-                const response = await fetch(`http://${host}:${port}/command?cmd=${command}`);
-                const result = await response.text();
-                console.log(result);
-            } catch (error) {
-                console.error('Error sending command:', error);
+        function sendControlCommand(command) {
+            fetch(`/command?cmd=${command}`)
+                .then(response => response.text())
+                .then(data => console.log(data))
+                .catch(error => console.error('Error:', error));
+            logCommand(`Comando enviado: ${command}`);
+        }
+
+        function enableManualButtons() {
+            document.getElementById('manual-buttons').style.display = 'flex';
+            document.querySelectorAll('.info-message').forEach(message => message.style.display = 'none');
+        }
+
+        function disableManualButtons() {
+            document.getElementById('manual-buttons').style.display = 'none';
+            document.querySelectorAll('.info-message').forEach(message => message.style.display = 'none');
+            if (currentMode === 'reposo') {
+                document.getElementById('reposo-message').style.display = 'block';
+            } else if (currentMode === 'linefollower') {
+                document.getElementById('linefollower-message').style.display = 'block';
             }
         }
+
+        function updateButtonStyles() {
+            document.getElementById('reposo-btn').classList.remove('modo-reposo', 'modo-activo');
+            document.getElementById('manual-btn').classList.remove('modo-manual', 'modo-activo');
+            document.getElementById('linefollower-btn').classList.remove('modo-linefollower', 'modo-activo');
+            if (currentMode === 'reposo') {
+                document.getElementById('reposo-btn').classList.add('modo-reposo', 'modo-activo');
+            } else if (currentMode === 'manual') {
+                document.getElementById('manual-btn').classList.add('modo-manual', 'modo-activo');
+            } else if (currentMode === 'linefollower') {
+                document.getElementById('linefollower-btn').classList.add('modo-linefollower', 'modo-activo');
+            }
+        }
+
+        function logCommand(message) {
+            const serialContent = document.getElementById('serial-content');
+            const newMessage = document.createElement('p');
+            newMessage.textContent = message;
+            serialContent.appendChild(newMessage);
+            serialContent.scrollTop = serialContent.scrollHeight;
+        }
+
+        document.querySelectorAll('.button-large').forEach(button => button.addEventListener('click', () => {
+            document.querySelectorAll('.info-message').forEach(message => message.style.display = 'none');
+        }));
     </script>
 </body>
+
 </html>
