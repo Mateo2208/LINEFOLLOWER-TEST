@@ -16,6 +16,13 @@ const int motor2Pin2 = 16;
 
 const int motor1Speed = 255;
 const int motor2Speed = 255;
+      
+const int sensorPins[8] = {34, 36, 33, 26, 27, 14, 19, 3};
+int sensorValues[8];
+
+
+int sensorMin[8];
+int sensorMax[8];
 
 const char* htmlPage = R"rawliteral(
 <!DOCTYPE html>
@@ -322,6 +329,8 @@ void moveBackward();
 void turnLeft();
 void turnRight();
 void stopMotors();
+void calibrateSensors();
+void followLine();
 
 void setup() {
   Serial.begin(115200);
@@ -451,4 +460,84 @@ void stopMotors() {
   ledcWrite(1, 0);
   ledcWrite(2, 0);
   ledcWrite(3, 0);
+}
+
+void followLine() {
+  Serial.println("Following line...");
+  while (currentMode == LINEFOLLOWER) {
+    int weightedSum = 0;
+    int total = 0;
+
+    // Leer valores de los sensores
+    for (int i = 0; i < 8; i++) {
+      int sensorValue = analogRead(sensorPins[i]);
+      // Ajustar el valor del sensor basado en la calibración
+      sensorValue = map(sensorValue, sensorMin[i], sensorMax[i], 0, 1000);
+      sensorValues[i] = constrain(sensorValue, 0, 1000);
+
+      // Calcular la suma ponderada para determinar la posición de la línea
+      weightedSum += sensorValues[i] * (i * 1000);
+      total += sensorValues[i];
+    }
+
+    // Calcular el valor promedio ponderado de la posición
+    int position = (total == 0) ? 3500 : weightedSum / total;
+
+    // Control de motores basado en la posición de la línea
+    int error = position - 3500; // 3500 es el centro de los sensores
+
+    int motorSpeed = 255;
+    int turnSpeed = error / 15; // Ajustar este valor según sea necesario
+
+    int leftMotorSpeed = motorSpeed - turnSpeed;
+    int rightMotorSpeed = motorSpeed + turnSpeed;
+
+    // Constrain motor speeds to valid range
+    leftMotorSpeed = constrain(leftMotorSpeed, 0, 255);
+    rightMotorSpeed = constrain(rightMotorSpeed, 0, 255);
+
+    ledcWrite(0, leftMotorSpeed);
+    ledcWrite(1, 0);
+    ledcWrite(2, rightMotorSpeed);
+    ledcWrite(3, 0);
+
+    delay(50); // Ajustar el retraso según sea necesario
+  }
+}
+
+void calibrateSensors() {
+  Serial.println("Calibrating sensors...");
+  
+  // Inicializar los valores de calibración
+  for (int i = 0; i < 8; i++) {
+    sensorMin[i] = 1023;
+    sensorMax[i] = 0;
+  }
+  
+  // Leer valores de los sensores durante un período de tiempo para calibrar
+  unsigned long startTime = millis();
+  while (millis() - startTime < 5000) { // Calibrar durante 5 segundos
+    for (int i = 0; i < 8; i++) {
+      int sensorValue = analogRead(sensorPins[i]);
+      if (sensorValue < sensorMin[i]) {
+        sensorMin[i] = sensorValue;
+      }
+      if (sensorValue > sensorMax[i]) {
+        sensorMax[i] = sensorValue;
+      }
+    }
+    delay(50);
+  }
+  
+  // Mostrar los valores calibrados
+  Serial.println("Calibration complete:");
+  for (int i = 0; i < 8; i++) {
+    Serial.print("Sensor ");
+    Serial.print(i);
+    Serial.print(" Min: ");
+    Serial.print(sensorMin[i]);
+    Serial.print(" Max: ");
+    Serial.println(sensorMax[i]);
+  }
+}
 }
