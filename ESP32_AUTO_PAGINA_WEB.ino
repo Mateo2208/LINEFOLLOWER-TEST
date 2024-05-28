@@ -1,7 +1,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 
-const char* ssid = "kakkka";
+const char* ssid = "ESP32-CAR";
 const char* password = "Papilagustativa";
 
 WebServer server(80);
@@ -16,12 +16,6 @@ const int motor2Pin2 = 16;
 
 const int motor1Speed = 255;
 const int motor2Speed = 255;
-      
-const int sensorPins[8] = {34, 36, 33, 26, 27, 14, 19, 3};
-int sensorValues[8];
-
-int sensorMin[8];
-int sensorMax[8];
 
 const char* htmlPage = R"rawliteral(
 <!DOCTYPE html>
@@ -30,7 +24,7 @@ const char* htmlPage = R"rawliteral(
 <head>
     <meta charset='UTF-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <title>LINEFOLLOWER</title>
+    <title>ESP32 Car Control</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -97,8 +91,7 @@ const char* htmlPage = R"rawliteral(
             width: 90%;
         }
 
-        #manual-buttons,
-        #linefollower-buttons {
+        #manual-buttons {
             display: none;
             justify-content: center;
             align-items: center;
@@ -145,10 +138,6 @@ const char* htmlPage = R"rawliteral(
             background-color: green !important;
         }
 
-        .modo-linefollower {
-            background-color: blue !important;
-        }
-
         .modo-activo {
             box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
         }
@@ -156,9 +145,9 @@ const char* htmlPage = R"rawliteral(
         #control-container {
             display: grid;
             grid-template-areas:
-                ". up ."
+                "up-left up up-right"
                 "left stop right"
-                ". down .";
+                "down-left down down-right";
             gap: 10px;
         }
 
@@ -182,6 +171,22 @@ const char* htmlPage = R"rawliteral(
             grid-area: down;
         }
 
+        #up-left-btn {
+            grid-area: up-left;
+        }
+
+        #up-right-btn {
+            grid-area: up-right;
+        }
+
+        #down-left-btn {
+            grid-area: down-left;
+        }
+
+        #down-right-btn {
+            grid-area: down-right;
+        }
+
         #serial-monitor {
             width: 300px;
             height: 300px;
@@ -198,12 +203,6 @@ const char* htmlPage = R"rawliteral(
             justify-content: center;
             align-items: center;
         }
-
-        #linefollower-buttons-container {
-            display: none;
-            flex-direction: column;
-            align-items: center;
-        }
     </style>
 </head>
 
@@ -213,7 +212,6 @@ const char* htmlPage = R"rawliteral(
     <div id="mode-buttons-container">
         <button class='button button-large' id="reposo-btn" onclick='sendCommand("REPOSO")'>REPOSO</button>
         <button class='button button-large' id="manual-btn" onclick='sendCommand("MANUAL")'>MANUAL</button>
-        <button class='button button-large' id="linefollower-btn" onclick='sendCommand("LINEFOLLOWER")'>LINEFOLLOWER</button>
     </div>
     <div id="manual-controls">
         <div id="serial-monitor">
@@ -237,51 +235,38 @@ const char* htmlPage = R"rawliteral(
                 <button class="button button-control" id="backward-btn" onclick='sendControlCommand("BACKWARD")'>
                     <div class="button-inner"></div>
                 </button>
-                <button class="button button-control" id="left-45-btn" onclick='sendControlCommand("LEFT_45")'>
-                    <div class="button-inner"></div>45°
+                <button class="button button-control" id="up-left-btn" onclick='sendControlCommand("UP-LEFT")'>
+                    GIRO 45
                 </button>
-                <button class="button button-control" id="right-45-btn" onclick='sendControlCommand("RIGHT_45")'>
-                    <div class="button-inner"></div>45°
+                <button class="button button-control" id="up-right-btn" onclick='sendControlCommand("UP-RIGHT")'>
+                    GIRO 45
+                </button>
+                <button class="button button-control" id="down-left-btn" onclick='sendControlCommand("DOWN-LEFT")'>
+                    GIRO 45
+                </button>
+                <button class="button button-control" id="down-right-btn" onclick='sendControlCommand("DOWN-RIGHT")'>
+                    GIRO 45
                 </button>
             </div>
         </div>
-        <div id="linefollower-buttons-container">
-            <button class="button button-control button-linefollower" id="calibrate-btn" onclick='sendLinefollowerCommand("CALIBRAR")'>
-                CALIBRAR
-            </button>
-            <button class="button button-control button-linefollower" id="follow-line-btn" onclick='sendLinefollowerCommand("SEGUIR_LINEA")'>
-                SEGUIR LÍNEA
-            </button>
-            <button class="button button-control button-linefollower" id="stop-line-btn" onclick='sendLinefollowerCommand("PARAR")'>
-                PARAR
-            </button>
-        </div>
+    </div>
+    <div id='info-message-container'>
+        <p class='info-message' id='reposo-message'>El auto no se puede mover en modo REPOSO. Por favor, cambia a otro
+            modo.</p>
     </div>
     <script>
         let manualMode = false;
         let currentMode = "reposo";
 
-        document.addEventListener('DOMContentLoaded', () => {
-            disableLinefollowerButtons(); // Ensure linefollower buttons are hidden on load
-        });
-
         function sendCommand(command) {
             if (command === "MANUAL") {
                 manualMode = true;
                 enableManualButtons();
-                disableLinefollowerButtons();
                 currentMode = "manual";
-                logCommand(`Ingresado al modo: ${command}`);
-            } else if (command === "LINEFOLLOWER") {
-                manualMode = false;
-                enableLinefollowerButtons();
-                disableManualButtons();
-                currentMode = "linefollower";
                 logCommand(`Ingresado al modo: ${command}`);
             } else {
                 manualMode = false;
                 disableManualButtons();
-                disableLinefollowerButtons();
                 currentMode = command.toLowerCase();
                 logCommand(`Ingresado al modo: ${command}`);
             }
@@ -300,14 +285,6 @@ const char* htmlPage = R"rawliteral(
             logCommand(`Comando enviado: ${command}`);
         }
 
-        function sendLinefollowerCommand(command) {
-            fetch(`/command?cmd=${command}`)
-                .then(response => response.text())
-                .then(data => console.log(data))
-                .catch(error => console.error('Error:', error));
-            logCommand(`Modo Linefollower: ${command}`);
-        }
-
         function enableManualButtons() {
             document.getElementById('manual-buttons').style.display = 'flex';
             document.querySelectorAll('.info-message').forEach(message => message.style.display = 'none');
@@ -316,28 +293,18 @@ const char* htmlPage = R"rawliteral(
         function disableManualButtons() {
             document.getElementById('manual-buttons').style.display = 'none';
             document.querySelectorAll('.info-message').forEach(message => message.style.display = 'none');
-        }
-
-        function enableLinefollowerButtons() {
-            document.getElementById('linefollower-buttons-container').style.display = 'flex';
-            document.querySelectorAll('.info-message').forEach(message => message.style.display = 'none');
-        }
-
-        function disableLinefollowerButtons() {
-            document.getElementById('linefollower-buttons-container').style.display = 'none';
-            document.querySelectorAll('.info-message').forEach(message => message.style.display = 'none');
+            if (currentMode === 'reposo') {
+                document.getElementById('reposo-message').style.display = 'block';
+            }
         }
 
         function updateButtonStyles() {
             document.getElementById('reposo-btn').classList.remove('modo-reposo', 'modo-activo');
             document.getElementById('manual-btn').classList.remove('modo-manual', 'modo-activo');
-            document.getElementById('linefollower-btn').classList.remove('modo-linefollower', 'modo-activo');
             if (currentMode === 'reposo') {
                 document.getElementById('reposo-btn').classList.add('modo-reposo', 'modo-activo');
             } else if (currentMode === 'manual') {
                 document.getElementById('manual-btn').classList.add('modo-manual', 'modo-activo');
-            } else if (currentMode === 'linefollower') {
-                document.getElementById('linefollower-btn').classList.add('modo-linefollower', 'modo-activo');
             }
         }
 
@@ -356,6 +323,7 @@ const char* htmlPage = R"rawliteral(
 </body>
 
 </html>
+
 )rawliteral";
 
 // Declaraciones de funciones
@@ -363,18 +331,17 @@ void handleRoot();
 void handleCommand();
 void processCommand(String command);
 void stopAllActivities();
-void startLineFollowingMode();
 void startManualMode();
 void processManualCommand(String command);
 void moveForward();
 void moveBackward();
 void turnLeft();
 void turnRight();
-void turnLeft45();
-void turnRight45();
 void stopMotors();
-void calibrateSensors();
-void followLine();
+void turnUpLeft();
+void turnUpRight();
+void turnDownLeft();
+void turnDownRight();
 
 void setup() {
   Serial.begin(115200);
@@ -426,9 +393,6 @@ void processCommand(String command) {
   if (command == "REPOSO") {
     currentMode = REPOSO;
     stopAllActivities();
-  } else if (command == "LINEFOLLOWER") {
-    currentMode = LINEFOLLOWER;
-    startLineFollowingMode();
   } else if (command == "MANUAL") {
     currentMode = MANUAL;
     startManualMode();
@@ -440,10 +404,6 @@ void processCommand(String command) {
 void stopAllActivities() {
   Serial.println("Stopping all activities...");
   stopMotors();
-}
-
-void startLineFollowingMode() {
-  Serial.println("Starting line following mode...");
 }
 
 void startManualMode() {
@@ -459,12 +419,16 @@ void processManualCommand(String command) {
     turnLeft();
   } else if (command == "RIGHT") {
     turnRight();
-  } else if (command == "LEFT_45") {
-    turnLeft45();
-  } else if (command == "RIGHT_45") {
-    turnRight45();
   } else if (command == "STOP") {
     stopMotors();
+  } else if (command == "UP-LEFT") {
+    turnUpLeft();
+  } else if (command == "UP-RIGHT") {
+    turnUpRight();
+  } else if (command == "DOWN-LEFT") {
+    turnDownLeft();
+  } else if (command == "DOWN-RIGHT") {
+    turnDownRight();
   } else {
     Serial.println("Unknown manual command");
   }
@@ -502,20 +466,36 @@ void turnRight() {
   ledcWrite(3, 0);
 }
 
-void turnLeft45() {
-  Serial.println("IZQUIERDA 45");
+void turnUpLeft() {
+  Serial.println("GIRO 45 IZQUIERDA ARRIBA");
   ledcWrite(0, motor1Speed / 2);
+  ledcWrite(1, 0);
+  ledcWrite(2, motor2Speed);
+  ledcWrite(3, 0);
+}
+
+void turnUpRight() {
+  Serial.println("GIRO 45 DERECHA ARRIBA");
+  ledcWrite(0, motor1Speed);
   ledcWrite(1, 0);
   ledcWrite(2, motor2Speed / 2);
   ledcWrite(3, 0);
 }
 
-void turnRight45() {
-  Serial.println("DERECHA 45");
-  ledcWrite(0, motor1Speed / 2);
-  ledcWrite(1, 0);
-  ledcWrite(2, motor2Speed / 2);
-  ledcWrite(3, 0);
+void turnDownLeft() {
+  Serial.println("GIRO 45 IZQUIERDA ABAJO");
+  ledcWrite(0, 0);
+  ledcWrite(1, motor1Speed / 2);
+  ledcWrite(2, 0);
+  ledcWrite(3, motor2Speed);
+}
+
+void turnDownRight() {
+  Serial.println("GIRO 45 DERECHA ABAJO");
+  ledcWrite(0, 0);
+  ledcWrite(1, motor1Speed);
+  ledcWrite(2, 0);
+  ledcWrite(3, motor2Speed / 2);
 }
 
 void stopMotors() {
@@ -524,83 +504,4 @@ void stopMotors() {
   ledcWrite(1, 0);
   ledcWrite(2, 0);
   ledcWrite(3, 0);
-}
-
-void followLine() {
-  Serial.println("Following line...");
-  while (currentMode == LINEFOLLOWER) {
-    int weightedSum = 0;
-    int total = 0;
-
-    // Leer valores de los sensores
-    for (int i = 0; i < 8; i++) {
-      int sensorValue = analogRead(sensorPins[i]);
-      // Ajustar el valor del sensor basado en la calibración
-      sensorValue = map(sensorValue, sensorMin[i], sensorMax[i], 0, 1000);
-      sensorValues[i] = constrain(sensorValue, 0, 1000);
-
-      // Calcular la suma ponderada para determinar la posición de la línea
-      weightedSum += sensorValues[i] * (i * 1000);
-      total += sensorValues[i];
-    }
-
-    // Calcular el valor promedio ponderado de la posición
-    int position = (total == 0) ? 3500 : weightedSum / total;
-
-    // Control de motores basado en la posición de la línea
-    int error = position - 3500; // 3500 es el centro de los sensores
-
-    int motorSpeed = 255;
-    int turnSpeed = error / 15; // Ajustar este valor según sea necesario
-
-    int leftMotorSpeed = motorSpeed - turnSpeed;
-    int rightMotorSpeed = motorSpeed + turnSpeed;
-
-    // Constrain motor speeds to valid range
-    leftMotorSpeed = constrain(leftMotorSpeed, 0, 255);
-    rightMotorSpeed = constrain(rightMotorSpeed, 0, 255);
-
-    ledcWrite(0, leftMotorSpeed);
-    ledcWrite(1, 0);
-    ledcWrite(2, rightMotorSpeed);
-    ledcWrite(3, 0);
-
-    delay(50); // Ajustar el retraso según sea necesario
-  }
-}
-
-void calibrateSensors() {
-  Serial.println("Calibrating sensors...");
-  
-  // Inicializar los valores de calibración
-  for (int i = 0; i < 8; i++) {
-    sensorMin[i] = 1023;
-    sensorMax[i] = 0;
-  }
-  
-  // Leer valores de los sensores durante un período de tiempo para calibrar
-  unsigned long startTime = millis();
-  while (millis() - startTime < 5000) { // Calibrar durante 5 segundos
-    for (int i = 0; i < 8; i++) {
-      int sensorValue = analogRead(sensorPins[i]);
-      if (sensorValue < sensorMin[i]) {
-        sensorMin[i] = sensorValue;
-      }
-      if (sensorValue > sensorMax[i]) {
-        sensorMax[i] = sensorValue;
-      }
-    }
-    delay(50);
-  }
-  
-  // Mostrar los valores calibrados
-  Serial.println("Calibration complete:");
-  for (int i = 0; i < 8; i++) {
-    Serial.print("Sensor ");
-    Serial.print(i);
-    Serial.print(" Min: ");
-    Serial.print(sensorMin[i]);
-    Serial.print(" Max: ");
-    Serial.println(sensorMax[i]);
-  }
 }
