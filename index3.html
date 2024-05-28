@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang='en'>
+
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>ESP32 Car Control</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1,
+        h2 {
+            color: #333;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 15px 25px;
+            font-size: 24px;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            outline: none;
+            color: #fff;
+            background-color: #007BFF;
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 9px #999;
+            margin: 5px;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+        }
+
+        .button-large {
+            font-size: 24px;
+            padding: 20px 30px;
+        }
+
+        .button:hover {
+            background-color: #0056b3;
+        }
+
+        .button:active {
+            background-color: #004494;
+            box-shadow: 0 5px #666;
+            transform: translateY(4px);
+        }
+
+        .button-disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .info-message {
+            display: none;
+            font-size: 24px;
+            color: #333;
+        }
+
+        #manual-controls,
+        #mapping-controls {
+            margin-top: 30px;
+            display: none;
+            justify-content: space-between;
+            align-items: flex-start;
+            width: 90%;
+        }
+
+        #manual-buttons,
+        #mapping-buttons {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .button-control {
+            width: 80px;
+            height: 80px;
+            margin: 5px;
+            font-size: 20px;
+            cursor: pointer;
+            outline: none;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            background-color: #ccc;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+            border: none;
+            border-radius: 5px;
+            padding: 5px;
+        }
+
+        .button-control:hover {
+            background-color: #ddd;
+        }
+
+        .button-control:active {
+            background-color: #bbb;
+            transform: translateY(4px);
+        }
+
+        .button-inner {
+            background-color: #fff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            margin: auto;
+        }
+
+        .modo-reposo {
+            background-color: red !important;
+        }
+
+        .modo-manual {
+            background-color: green !important;
+        }
+
+        .modo-mapping {
+            background-color: orange !important;
+        }
+
+        .modo-activo {
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        #control-container {
+            display: grid;
+            grid-template-areas:
+                "up-left up up-right"
+                "left stop right"
+                "down-left down down-right";
+            gap: 10px;
+        }
+
+        #forward-btn {
+            grid-area: up;
+        }
+
+        #left-btn {
+            grid-area: left;
+        }
+
+        #stop-btn {
+            grid-area: stop;
+        }
+
+        #right-btn {
+            grid-area: right;
+        }
+
+        #backward-btn {
+            grid-area: down;
+        }
+
+        #up-left-btn {
+            grid-area: up-left;
+        }
+
+        #up-right-btn {
+            grid-area: up-right;
+        }
+
+        #down-left-btn {
+            grid-area: down-left;
+        }
+
+        #down-right-btn {
+            grid-area: down-right;
+        }
+
+        #serial-monitor {
+            width: 300px;
+            height: 300px;
+            border: 1px solid #333;
+            border-radius: 5px;
+            background-color: #fff;
+            padding: 10px;
+            overflow-y: scroll;
+            text-align: left;
+            margin: 20px 0;
+        }
+
+        #mode-buttons-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        #mapping-settings {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        #mapping-settings input {
+            margin: 5px;
+            padding: 10px;
+            font-size: 18px;
+            width: 100px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>ESP32 Car Control</h1>
+    <h2>Controla tu auto desde aquí</h2>
+    <div id="mode-buttons-container">
+        <button class='button button-large' id="reposo-btn" onclick='sendCommand("REPOSO")'>REPOSO</button>
+        <button class='button button-large' id="manual-btn" onclick='sendCommand("MANUAL")'>MANUAL</button>
+        <button class='button button-large' id="mapping-btn" onclick='sendCommand("MAPPING")'>MAPEO DE CARRIL</button>
+    </div>
+    <div id="serial-monitor">
+        <h2>Serial Monitor</h2>
+        <div id="serial-content"></div>
+    </div>
+    <div id="manual-controls">
+        <div id="manual-buttons">
+            <div id="control-container">
+                <button class="button button-control" id="forward-btn" onclick='sendControlCommand("FORWARD")'>
+                    <div class="button-inner"></div>
+                </button>
+                <button class="button button-control" id="left-btn" onclick='sendControlCommand("LEFT")'>
+                    <div class="button-inner"></div>
+                </button>
+                <button class="button button-control" id="stop-btn" onclick='sendControlCommand("STOP")'>
+                    <div class="button-inner"></div>
+                </button>
+                <button class="button button-control" id="right-btn" onclick='sendControlCommand("RIGHT")'>
+                    <div class="button-inner"></div>
+                </button>
+                <button class="button button-control" id="backward-btn" onclick='sendControlCommand("BACKWARD")'>
+                    <div class="button-inner"></div>
+                </button>
+                <button class="button button-control" id="up-left-btn" onclick='sendControlCommand("UP-LEFT")'>
+                    GIRO 45
+                </button>
+                <button class="button button-control" id="up-right-btn" onclick='sendControlCommand("UP-RIGHT")'>
+                    GIRO 45
+                </button>
+                <button class="button button-control" id="down-left-btn" onclick='sendControlCommand("DOWN-LEFT")'>
+                    GIRO 45
+                </button>
+                <button class="button button-control" id="down-right-btn" onclick='sendControlCommand("DOWN-RIGHT")'>
+                    GIRO 45
+                </button>
+            </div>
+        </div>
+    </div>
+    <div id="mapping-controls">
+        <div id="mapping-buttons">
+            <div id="control-container">
+                <button class="button button-control" onclick='addMovement("FORWARD")'>
+                    <div class="button-inner"></div>
+                </button>
+                <button class="button button-control" onclick='addMovement("LEFT")'>
+                    <div class="button-inner"></div>
+                </button>
+                <button class="button button-control" onclick='addMovement("STOP")'>
+                    <div class="button-inner"></div>
+                </button>
+                <button class="button button-control" onclick='addMovement("RIGHT")'>
+                    <div class="button-inner"></div>
+                </button>
+                <button class="button button-control" onclick='addMovement("BACKWARD")'>
+                    <div class="button-inner"></div>
+                </button>
+                <button class="button button-control" onclick='addMovement("UP-LEFT")'>
+                    GIRO 45
+                </button>
+                <button class="button button-control" onclick='addMovement("UP-RIGHT")'>
+                    GIRO 45
+                </button>
+                <button class="button button-control" onclick='addMovement("DOWN-LEFT")'>
+                    GIRO 45
+                </button>
+                <button class="button button-control" onclick='addMovement("DOWN-RIGHT")'>
+                    GIRO 45
+                </button>
+            </div>
+            <div id="mapping-settings">
+                <input type="number" id="duration" placeholder="Duración (s)" min="1" max="10">
+                <button class="button button-large" onclick='executeMapping()'>Ejecutar Mapeo</button>
+            </div>
+        </div>
+    </div>
+    <div id='info-message-container'>
+        <p class='info-message' id='reposo-message'>El auto no se puede mover en modo REPOSO. Por favor, cambia a otro
+            modo.</p>
+    </div>
+    <script>
+        let manualMode = false;
+        let mappingMode = false;
+        let currentMode = "reposo";
+        let movementSequence = [];
+
+        function sendCommand(command) {
+            if (command === "MANUAL") {
+                manualMode = true;
+                mappingMode = false;
+                document.getElementById('manual-controls').style.display = 'flex';
+                document.getElementById('mapping-controls').style.display = 'none';
+                currentMode = "manual";
+                logCommand(`Ingresado al modo: ${command}`);
+            } else if (command === "MAPPING") {
+                manualMode = false;
+                mappingMode = true;
+                document.getElementById('manual-controls').style.display = 'none';
+                document.getElementById('mapping-controls').style.display = 'flex';
+                currentMode = "mapping";
+                logCommand(`Ingresado al modo: ${command}`);
+            } else {
+                manualMode = false;
+                mappingMode = false;
+                document.getElementById('manual-controls').style.display = 'none';
+                document.getElementById('mapping-controls').style.display = 'none';
+                currentMode = command.toLowerCase();
+                logCommand(`Ingresado al modo: ${command}`);
+            }
+            fetch(`/command?cmd=${command}`)
+                .then(response => response.text())
+                .then(data => console.log(data))
+                .catch(error => console.error('Error:', error));
+            updateButtonStyles();
+        }
+
+        function sendControlCommand(command) {
+            fetch(`/command?cmd=${command}`)
+                .then(response => response.text())
+                .then(data => console.log(data))
+                .catch(error => console.error('Error:', error));
+            logCommand(`Comando enviado: ${command}`);
+        }
+
+        function addMovement(command) {
+            let duration = document.getElementById('duration').value || 1;
+            movementSequence.push({command, duration});
+            logCommand(`Movimiento añadido: ${command} por ${duration} segundos`);
+        }
+
+        function executeMapping() {
+            let sequenceString = JSON.stringify(movementSequence);
+            fetch(`/executeMapping?sequence=${encodeURIComponent(sequenceString)}`)
+                .then(response => response.text())
+                .then(data => console.log(data))
+                .catch(error => console.error('Error:', error));
+            logCommand(`Ejecutando secuencia de mapeo: ${sequenceString}`);
+            movementSequence = [];
+        }
+
+        function updateButtonStyles() {
+            document.getElementById('reposo-btn').classList.remove('modo-reposo', 'modo-activo');
+            document.getElementById('manual-btn').classList.remove('modo-manual', 'modo-activo');
+            document.getElementById('mapping-btn').classList.remove('modo-mapping', 'modo-activo');
+            if (currentMode === 'reposo') {
+                document.getElementById('reposo-btn').classList.add('modo-reposo', 'modo-activo');
+            } else if (currentMode === 'manual') {
+                document.getElementById('manual-btn').classList.add('modo-manual', 'modo-activo');
+            } else if (currentMode === 'mapping') {
+                document.getElementById('mapping-btn').classList.add('modo-mapping', 'modo-activo');
+            }
+        }
+
+        function logCommand(message) {
+            const serialContent = document.getElementById('serial-content');
+            const newMessage = document.createElement('p');
+            newMessage.textContent = message;
+            serialContent.appendChild(newMessage);
+            serialContent.scrollTop = serialContent.scrollHeight;
+        }
+
+        document.querySelectorAll('.button-large').forEach(button => button.addEventListener('click', () => {
+            document.querySelectorAll('.info-message').forEach(message => message.style.display = 'none');
+        }));
+    </script>
+</body>
+
+</html>
