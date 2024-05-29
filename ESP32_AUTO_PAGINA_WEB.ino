@@ -14,7 +14,7 @@ const int motor1Pin2 = 19;
 const int motor2Pin1 = 4;
 const int motor2Pin2 = 16;
 
-const int motor1Speed = 255;
+const int motor1Speed = 245;
 const int motor2Speed = 255;
 
 const char* htmlPage = R"rawliteral(
@@ -212,6 +212,7 @@ const char* htmlPage = R"rawliteral(
     <div id="mode-buttons-container">
         <button class='button button-large' id="reposo-btn" onclick='sendCommand("REPOSO")'>REPOSO</button>
         <button class='button button-large' id="manual-btn" onclick='sendCommand("MANUAL")'>MANUAL</button>
+        <button class='button button-large' id="start-btn" onclick='sendCommand("START")'>INICIAR</button>
     </div>
     <div id="manual-controls">
         <div id="serial-monitor">
@@ -342,6 +343,7 @@ void turnUpLeft();
 void turnUpRight();
 void turnDownLeft();
 void turnDownRight();
+void executePattern();
 
 void setup() {
   Serial.begin(115200);
@@ -396,6 +398,8 @@ void processCommand(String command) {
   } else if (command == "MANUAL") {
     currentMode = MANUAL;
     startManualMode();
+  } else if (command == "START") {
+    executePattern();
   } else if (currentMode == MANUAL) {
     processManualCommand(command);
   }
@@ -434,6 +438,29 @@ void processManualCommand(String command) {
   }
 }
 
+void executePattern() {
+  Serial.println("Starting pattern sequence...");
+  moveForward();
+  delay(1700);
+  turnRight();
+  delay(480);
+  moveForward();
+  delay(1700);
+  turnRight();
+  delay(490);
+  moveForward();
+  delay(1200);
+  turnRight();
+  delay(500);
+  moveForward(
+  turnRight();
+  delay(500);
+  );
+  delay(1700);
+  stopMotors();
+  Serial.println("Pattern sequence completed.");
+}
+
 void moveForward() {
   Serial.println("ADELANTE");
   ledcWrite(0, motor1Speed);
@@ -468,34 +495,34 @@ void turnRight() {
 
 void turnUpLeft() {
   Serial.println("GIRO 45 IZQUIERDA ARRIBA");
-  ledcWrite(0, motor1Speed / 2);
-  ledcWrite(1, 0);
-  ledcWrite(2, motor2Speed);
-  ledcWrite(3, 0);
-}
-
-void turnUpRight() {
-  Serial.println("GIRO 45 DERECHA ARRIBA");
   ledcWrite(0, motor1Speed);
   ledcWrite(1, 0);
   ledcWrite(2, motor2Speed / 2);
   ledcWrite(3, 0);
 }
 
+void turnUpRight() {
+  Serial.println("GIRO 45 DERECHA ARRIBA");
+  ledcWrite(0, motor1Speed / 2);
+  ledcWrite(1, 0);
+  ledcWrite(2, motor2Speed);
+  ledcWrite(3, 0);
+}
+
 void turnDownLeft() {
   Serial.println("GIRO 45 IZQUIERDA ABAJO");
   ledcWrite(0, 0);
-  ledcWrite(1, motor1Speed / 2);
+  ledcWrite(1, motor1Speed);
   ledcWrite(2, 0);
-  ledcWrite(3, motor2Speed);
+  ledcWrite(3, motor2Speed / 2);
 }
 
 void turnDownRight() {
   Serial.println("GIRO 45 DERECHA ABAJO");
   ledcWrite(0, 0);
-  ledcWrite(1, motor1Speed);
+  ledcWrite(1, motor1Speed / 2);
   ledcWrite(2, 0);
-  ledcWrite(3, motor2Speed / 2);
+  ledcWrite(3, motor2Speed);
 }
 
 void stopMotors() {
